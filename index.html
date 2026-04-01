@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shawn Kreitz Audio Booking System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#f5f7fa; }
+header { background:#2c3e50; color:white; padding:16px; text-align:center; }
+#calendar { max-width:900px; margin:20px auto; background:white; padding:10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+.form-container { max-width:900px; margin:10px auto; padding:10px; }
+input, select, textarea { width:100%; padding:10px; margin-top:8px; border-radius:8px; border:1px solid #ccc; }
+button { padding:10px; border:none; border-radius:8px; cursor:pointer; background:#3498db; color:white; width:100%; margin-top:10px; }
+.status-confirmed { background-color: #2ecc71 !important; }
+.status-tentative { background-color: #f1c40f !important; }
+footer { text-align:center; padding:20px; color:#777; }
+</style>
+</head>
+<body>
+
+<header>
+<h1>Shawn Kreitz Audio Booking System</h1>
+<p>Select a start and end date to request a booking</p>
+</header>
+
+<div id="calendar"></div>
+
+<div class="form-container">
+<h3>Request a Booking</h3>
+<form id="bookingForm">
+<input type="text" id="name" placeholder="Your Name" required>
+<input type="email" id="email" placeholder="Your Email" required>
+<input type="date" id="startDate" required>
+<input type="date" id="endDate" required>
+<select id="status">
+<option value="Tentative">Tentative</option>
+<option value="Confirmed">Confirmed</option>
+</select>
+<textarea id="notes" placeholder="Notes (optional)"></textarea>
+<button type="submit">Send Booking Request</button>
+</form>
+</div>
+
+<footer>
+Contact: shawnkliveaudio@gmail.com
+</footer>
+
+<script>
+const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+  initialView: 'dayGridMonth',
+  dateClick: function(info){
+    document.getElementById('startDate').value = info.dateStr;
+    document.getElementById('endDate').value = info.dateStr;
+  }
+});
+
+let bookings = [];
+
+async function fetchBookings(){
+  try{
+    let res = await fetch('/.netlify/functions/getBookings');
+    bookings = await res.json();
+    renderEvents();
+  } catch(e){ console.log('Error fetching bookings:', e); }
+}
+
+function renderEvents(){
+  calendar.removeAllEvents();
+  bookings.forEach(b=>{
+    let start = new Date(b.startDate);
+    let end = new Date(b.endDate);
+    for(let d = new Date(start); d <= end; d.setDate(d.getDate()+1)){
+      calendar.addEvent({
+        title: b.status,
+        start: new Date(d),
+        allDay:true,
+        classNames:[`status-${b.status.toLowerCase()}`]
+      });
+    }
+  });
+}
+
+document.getElementById('bookingForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const booking = {
+    uniqueId: Date.now(),
+    name: document.getElementById('name').value,
+    email: document.getElementById('email').value,
+    startDate: document.getElementById('startDate').value,
+    endDate: document.getElementById('endDate').value,
+    status: document.getElementById('status').value,
+    notes: document.getElementById('notes').value
+  };
+
+  try{
+    let res = await fetch('/.netlify/functions/addBooking',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(booking)
+    });
+    let result = await res.json();
+    if(result.success){
+      alert('Booking request sent!');
+      bookings.push(booking);
+      renderEvents();
+      document.getElementById('bookingForm').reset();
+    } else {
+      alert('Error submitting booking.');
+    }
+  } catch(e){ console.log(e); alert('Error submitting booking.'); }
+});
+
+calendar.render();
+fetchBookings();
+</script>
+</body>
+</html>
