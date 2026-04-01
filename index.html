@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shawn Kreitz Audio Booking System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- FullCalendar -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fa; }
+    header { background: #2c3e50; color: white; padding: 16px; text-align: center; }
+    #calendar { max-width: 900px; margin: 20px auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .form-container { max-width: 900px; margin: 10px auto; padding: 10px; }
+    input, select, textarea { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #ccc; }
+    button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: #3498db; color: white; width: 100%; margin-top: 10px; }
+    .status-confirmed { background-color: #2ecc71 !important; }
+    .status-tentative { background-color: #f1c40f !important; }
+    footer { text-align: center; padding: 20px; color: #777; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Shawn Kreitz Audio Booking System</h1>
+  <p>Select a start and end date to request a booking</p>
+</header>
+
+<div id="calendar"></div>
+
+<div class="form-container">
+  <h3>Request a Booking</h3>
+  <form id="bookingForm">
+    <input type="text" id="name" placeholder="Your Name" required>
+    <input type="email" id="email" placeholder="Your Email" required>
+    <input type="date" id="startDate" required>
+    <input type="date" id="endDate" required>
+    <select id="status">
+      <option value="Tentative">Tentative</option>
+      <option value="Confirmed">Confirmed</option>
+    </select>
+    <textarea id="notes" placeholder="Notes (optional)"></textarea>
+    <button type="submit">Send Booking Request</button>
+  </form>
+</div>
+
+<footer>
+  Contact: shawnkliveaudio@gmail.com
+</footer>
+
+<script>
+  (function(){ emailjs.init("YOUR_PUBLIC_KEY"); })(); // Replace with your EmailJS public key
+
+  let availability = {};
+
+  const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'dayGridMonth',
+    dateClick: function(info) {
+      document.getElementById('startDate').value = info.dateStr;
+      document.getElementById('endDate').value = info.dateStr;
+    }
+  });
+
+  function renderEvents() {
+    calendar.removeAllEvents();
+    Object.keys(availability).forEach(date => {
+      const status = availability[date];
+      calendar.addEvent({
+        title: status,
+        start: date,
+        allDay: true,
+        classNames: [`status-${status.toLowerCase()}`]
+      });
+    });
+  }
+
+  function generateICS(startDate, endDate, title) {
+    let icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${title}\nDTSTART:${startDate.replace(/-/g,'')}\nDTEND:${endDate.replace(/-/g,'')}\nEND:VEVENT\nEND:VCALENDAR`;
+    return new Blob([icsContent], { type: 'text/calendar' });
+  }
+
+  document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const templateParams = {
+      name: document.getElementById('name').value,
+      email: document.getElementById('email').value,
+      startDate: document.getElementById('startDate').value,
+      endDate: document.getElementById('endDate').value,
+      status: document.getElementById('status').value,
+      notes: document.getElementById('notes').value,
+      uniqueId: Date.now()
+    };
+
+    // Send email to admin with confirm link
+    const confirmLink = `https://your-website.com/confirm.html?uniqueId=${templateParams.uniqueId}&startDate=${templateParams.startDate}&endDate=${templateParams.endDate}&email=${templateParams.email}`;
+    templateParams.confirmLink = confirmLink;
+
+    emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+      .then(function() {
+        // Send auto-reply to requester
+        emailjs.send('YOUR_SERVICE_ID', 'YOUR_AUTOREPLY_TEMPLATE_ID', templateParams);
+
+        // Update calendar
+        for (let d = new Date(templateParams.startDate); d <= new Date(templateParams.endDate); d.setDate(d.getDate()+1)) {
+          const key = d.toISOString().split('T')[0];
+          availability[key] = templateParams.status;
+        }
+        renderEvents();
+
+        alert('Booking request sent!');
+        document.getElementById('bookingForm').reset();
+      }, function(error) {
+        alert('Failed to send request.');
+        console.log(error);
+      });
+  });
+
+  calendar.render();
+</script>
+
+</body>
+</html>
