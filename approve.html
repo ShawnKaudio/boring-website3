@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Approve Booking</title></head>
+<body>
+<h1>Approving Booking...</h1>
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const id = urlParams.get('id');
+const action = urlParams.get('action') || 'confirmed';
+
+fetch('https://<YOUR_VERCEL_PROJECT>/api/bookings', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ id, status: action })
+})
+.then(() => alert(`Booking marked as ${action}`))
+.catch(() => alert('Error updating booking'));
+</script>
+</body>
+</html>
